@@ -22,16 +22,33 @@
 -- SOFTWARE.
 local valid = {version="1.0"}
 
+valid.ops = {
+    ["<="] = function(a,b) return a <= b end,
+    [">="] = function (a,b) return a >= b end,
+    ["<"]= function (a,b) return a < b end,
+    [">"]= function (a,b) return a > b end,
+    ["="]= function (a,b) return a == b end,
+    ["~="] = function (a,b) return a ~= b end
+}
+
+valid.filters = {
+    len = function (v) 
+        if type(v) ~= "number" then
+            return #v
+        else 
+            return -1
+        end
+    end,
+    val = function (v) return v end,
+    type = function (v) return type(v) end
+}
+
 setmetatable(valid, {
     __call = function(self, t)
         local filter = {}
         local filterfunc
 
-        if type(t) == "function" then
-            filterfunc = t
-        else
-            error("the filter has to be a function")
-        end
+        filterfunc = valid.genfilter(t)
         
         function filter:explain(v)
             local e, n = filterfunc(v)
@@ -41,11 +58,70 @@ setmetatable(valid, {
 
         setmetatable(filter, {
             __call=function(self,v)
-                return filter:explain(v).result
+                return self:explain(v).result
             end
         })
         return filter
     end
 })
+
+valid.genfilter = function(v)
+    local filters = {}
+    local flags = {}
+
+    if type(v) == "function" then
+        return v
+    elseif type(v) == "string" then
+        local f = {}
+        -- TODO this needs to handle pipes inside of quotes for patterns
+        for substr in (v.."|"):gmatch("([^|]*)|") do
+            if substr ~= nil and substr:len() > 0 then
+                table.insert(f, substr)
+            end
+        end
+
+        -- parse filters
+        for i,_filter in ipairs(f) do
+            filters[_filter] = valid.makefunction(_filter)
+        end
+    end
+
+    return function(v)
+        local errors = {}
+        local fail = false
+
+        for name, filter in pairs(filters) do
+            if not filter(v) then
+                table.insert(errors, "Failed: " .. name)
+                fail = true
+            end
+        end
+
+        return errors, fail
+    end
+end
+
+valid.makefunction = function(_filter)
+    local filter, op, value = valid.tokens(_filter)
+    if op == nil then
+        --table.insert(flags, filter)
+    elseif valid.ops[op] ~= nil and valid.filters[filter] ~= nil then
+        if string.match(value, "%-?%d+") == value and filter ~= "chars" then
+            value = tonumber(value)
+        end
+
+        return function(v)
+            return valid.ops[op](valid.filters[filter](v), value)
+        end
+    end
+end
+
+valid.tokens = function(filter)
+    local f = filter:match("[^=<>]+")
+    if f == filter then return f end
+    local op = filter:match("[<>]?=?", f:len()+1)
+    local value = filter:sub(f:len()+op:len()+1)
+    return f, op, value
+end
 
 return valid
