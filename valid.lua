@@ -1,7 +1,7 @@
 --
--- valid.lua 1.0
+-- valid.lua 0.1
 --
--- Copyright (c) pta2002, 2019
+-- Copyright (c) 2019, pta2002
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a copy
 -- of this software and associated documentation files (the "Software"), to
@@ -20,7 +20,7 @@
 -- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 -- SOFTWARE.
-local valid = {version="1.0"}
+local valid = {version="0.1"}
 
 valid.ops = {
     ["<="] = function(a,b) return a <= b end,
@@ -84,20 +84,47 @@ valid.genfilter = function(v)
         for i,_filter in ipairs(f) do
             filters[_filter] = valid.makefunction(_filter)
         end
-    end
 
-    return function(v)
-        local errors = {}
-        local fail = false
+        return function(v)
+            local errors = {}
+            local fail = false
 
-        for name, filter in pairs(filters) do
-            if not filter(v) then
-                table.insert(errors, "Failed: " .. name)
-                fail = true
+            for name, filter in pairs(filters) do
+                if not filter(v) then
+                    table.insert(errors, "Failed: " .. name)
+                    fail = true
+                end
             end
+
+            return errors, fail
+        end
+    elseif type(v) == "table" then
+        for k,filter in pairs(v) do
+            filters[k] = valid.genfilter(filter)
         end
 
-        return errors, fail
+        return function(v)
+            local errors = {}
+            local fail = false
+
+            for k,filter in pairs(filters) do
+                if v[k] == nil then
+                    table.insert(errors, k .. " is required")
+                    fail = true
+                else
+                    local ferrors, ffail = filter(v[k])
+                    for _,error in ipairs(ferrors) do
+                        table.insert(errors, error)
+                    end
+
+                    if ffail then
+                        fail = true
+                    end
+                end
+            end
+
+            return errors, fail
+        end
     end
 end
 
