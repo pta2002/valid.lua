@@ -1,5 +1,5 @@
 --
--- valid.lua 0.1
+-- valid.lua 0.2
 --
 -- Copyright (c) 2019, pta2002
 --
@@ -20,15 +20,15 @@
 -- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 -- SOFTWARE.
-local valid = {version="0.1"}
+local valid = {version="0.2"}
 
 valid.ops = {
-    ["<="] = function(a,b) return a <= b end,
-    [">="] = function (a,b) return a >= b end,
-    ["<"]= function (a,b) return a < b end,
-    [">"]= function (a,b) return a > b end,
-    ["="]= function (a,b) return a == b end,
-    ["~="] = function (a,b) return a ~= b end
+    ["<="] = function(a,b) return type(a) == "number" and type(b) == "number" and a <= b end,
+    [">="] = function (a,b) return type(a) == "number" and type(b) == "number" and a >= b end,
+    ["<"]= function (a,b) return type(a) == "number" and type(b) == "number" and a < b end,
+    [">"]= function (a,b) return type(a) == "number" and type(b) == "number" and a > b end,
+    ["="]= function (a,b) return type(a) == type(b) and a == b end,
+    ["~="] = function (a,b) return type(a) == type(b) and a ~= b end
 }
 
 valid.filters = {
@@ -99,6 +99,27 @@ valid.genfilter = function(v)
             return errors, fail
         end
     elseif type(v) == "table" then
+        if #v == 1 and type(v[1]) ~= nil then
+            local listfilter = valid.genfilter(v[1])
+            if listfilter then
+                return function(v)
+                    if type(v) ~= "table" then return {"value has to be a table"}, true end
+                    local errors = {}
+                    local fail = false
+                    for i,item in ipairs(v) do
+                        local ferrors, ffail = listfilter(item)
+                        for _,error in ipairs(ferrors) do
+                            table.insert(errors, tostring(item) .. ": " .. error)
+                        end
+
+                        if ffail then fail = true end
+                    end
+
+                    return errors, fail
+                end
+            end
+        end
+
         for k,filter in pairs(v) do
             filters[k] = valid.genfilter(filter)
         end

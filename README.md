@@ -5,7 +5,7 @@ A simple validation library for lua
 ```lua
 local valid = require "valid"
 print(valid.version)
--- 0.1
+-- 0.2
 
 -- Supports any standard type
 -- Numbers
@@ -37,6 +37,11 @@ filter:explain({
     posts={}
 })
 -- {result=nil, errors={"password is required", "title is required", "body is required"}}
+
+-- Lists
+filter = valid({"type=number|val<3"})
+filter:explain({1,2,3,4})
+-- {result=nil. errors={"3: Failed: val<3", "4: Failed: val<3"}}
 
 -- You can also specify a function to act as a validator instead of a stirng if
 -- you wish for more flexibility
