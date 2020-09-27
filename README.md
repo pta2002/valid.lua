@@ -43,7 +43,7 @@ filter = valid({"type=number|val<3"})
 filter:explain({1,2,3,4})
 -- {result=nil. errors={"3: Failed: val<3", "4: Failed: val<3"}}
 
--- You can also specify a function to act as a validator instead of a stirng if
+-- You can also specify a function to act as a validator instead of a string if
 -- you wish for more flexibility
 filter = valid(function (val)
     local errs = {}
